@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Display DNS record type and destination for given subdomains.
+domain="$1"
+subdomain="$2"
+
+get_info() {
+    # $1 = domain, $2 = subdomain
+    local d="$1"
+    local s="$2"
+    local full="${s}.${d}"
+
+    # Get the first ANSWER line for this host
+    # Example: web-01.example.com. 212 IN A 34.198.248.145
+    local line
+    line=$(dig "$full" +noall +answer | head -n 1)
+
+    # If nothing is returned, do nothing (no edge case handling required)
+    if [ -z "$line" ]; then
+        return
+    fi
+
+    # Extract record type and destination with awk
+    local record_type
+    local destination
+
+    record_type=$(echo "$line" | awk '{print $4}')
+    destination=$(echo "$line" | awk '{print $5}')
+
+    echo "The subdomain $s is a $record_type record and points to $destination"
+}
+
+# If no domain is given, just exit (project says we don't need to handle edge cases)
+if [ -z "$domain" ]; then
+    exit 0
+fi
+
+if [ -z "$subdomain" ]; then
+    # No specific subdomain: check these four, in this order
+    get_info "$domain" "www"
+    get_info "$domain" "lb-01"
+    get_info "$domain" "web-01"
+    get_info "$domain" "web-02"
+else
+    # One specific subdomain
+    get_info "$domain" "$subdomain"
+fi
